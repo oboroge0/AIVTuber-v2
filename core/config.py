@@ -43,6 +43,9 @@ class Config:
     DEFAULT_PROMPT_FILE = "comment_mode.txt"
     MAX_HISTORY_TURNS = 1000
     
+    # Comment Scoring
+    THRESHOLD = 0.3  # コメントスコアリングの閾値
+    
     # Voice Model Settings
     VOICE_MODEL = {
         "bert": {

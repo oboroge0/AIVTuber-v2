@@ -17,6 +17,7 @@ from .tts_handler import TTSHandler
 from .vts_animator import VTSAnimator
 from .obs_connector import OBSConnector
 from .history_manager import HistoryManager
+from .models import Comment
 from utils.logger import get_logger
 from utils.helpers import load_json_file, save_json_file, create_backup
 from core.config import Config
@@ -28,7 +29,9 @@ class AIVTuberController:
     
     def __init__(self):
         """初期化"""
-        self.comment_listener = CommentListener()
+        # Producer–Consumer 共有キュー
+        self._comment_queue: asyncio.Queue = asyncio.Queue()
+        
         self.scorer = CommentScorer()
         self.memory_searcher = MemorySearcher()
         self.history = HistoryManager(
@@ -47,7 +50,7 @@ class AIVTuberController:
         
         self.current_video_id: Optional[str] = None
         self.is_running = False
-        self._main_loop_task = None
+        self._listener = None
     
     async def start(self, video_id: str) -> None:
         """
@@ -60,15 +63,14 @@ class AIVTuberController:
             self.current_video_id = video_id
             self.is_running = True
             
-            # コメントリスナーを開始
-            await self.comment_listener.start(video_id)
+            # --- Producer タスク：CommentListener ---
+            self._listener = CommentListener(video_id, self._comment_queue)
+            asyncio.create_task(self._listener.start())   # Producer 起動
             
-            logger.info(f"コメントリスナーを開始しました: {video_id}")
+            # --- Consumer タスク：コメント処理メインループ ---
+            asyncio.create_task(self._consume_comments())  # Consumer 起動
             
-            # メインループを開始
-            loop = asyncio.get_running_loop()
-            self._main_loop_task = loop.create_task(self._main_loop())
-            logger.info("メインループを開始しました")
+            logger.info(f"配信を開始しました: {video_id}")
             
         except Exception as e:
             logger.error(f"配信開始エラー: {e}")
@@ -79,18 +81,12 @@ class AIVTuberController:
         """配信を停止する"""
         self.is_running = False
         
-        if self._main_loop_task:
-            self._main_loop_task.cancel()
-            try:
-                await self._main_loop_task
-            except asyncio.CancelledError:
-                pass
-            self._main_loop_task = None
+        if self._listener:
+            await self._listener.stop()
         
-        await self.comment_listener.stop()
         logger.info("配信を停止しました")
     
-    async def speak_text(self, text: str) -> None:
+    async def _speak(self, text: str) -> None:
         """
         テキストを音声で再生する
         
@@ -98,36 +94,36 @@ class AIVTuberController:
             text: 再生するテキスト
         """
         try:
-            self.tts_handler.text_to_speech(text)
+            # --- TTS 音声合成（Executor で非同期実行） ---
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,  # default ThreadPoolExecutor
+                self.tts_handler.text_to_speech,
+                text,
+            )
             await self.vts_animator.trigger_random_animation("Speak")
         except Exception as e:
             logger.error(f"Error speaking text: {e}")
     
-    async def _main_loop(self) -> None:
-        """メインループ"""
-        try:
-            logger.info("メインループを開始します")
-            while self.is_running:
-                try:
-                    comment = await self.comment_listener.get_next_comment()
-                    if comment is not None:
-                        logger.info(f"コメント: {comment.text}")
-                        score = self.scorer.score_comment(comment)
-                        logger.info(f"スコア: {score}")
-                        if score > 0.3:
-                            response = await self._full_response_pipeline(comment.text)
-                            await self.speak_text(response)
-                    
-                    await asyncio.sleep(0)
-                    
-                except Exception as e:
-                    logger.error(f"メインループ内でエラーが発生: {e}")
-                    await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            logger.info("メインループがキャンセルされました")
-        except Exception as e:
-            logger.error(f"メインループで予期せぬエラーが発生: {e}")
-            self.is_running = False
+    async def _consume_comments(self):
+        """Queue からコメントを取り出して順次処理する Consumer ループ"""
+        while self.is_running:
+            try:
+                comment = await self._comment_queue.get()
+                await self._handle_comment(comment)
+            except Exception as e:
+                logger.exception(e)
+            finally:
+                self._comment_queue.task_done()
+    
+    async def _handle_comment(self, comment: Comment):
+        """個別コメントを処理するロジック（スコアリング → GPT 応答 → TTS）"""
+        score = self.scorer.score_comment(comment)
+        if score < Config.THRESHOLD:
+            return
+            
+        response_text = await self._full_response_pipeline(comment.text)
+        await self._speak(response_text)
     
     async def _full_response_pipeline(self, user_text: str) -> str:
         """
