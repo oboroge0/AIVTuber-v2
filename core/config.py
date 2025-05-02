@@ -34,10 +34,14 @@ class Config:
     # Storage Paths
     STORAGE_DIR = "storage"
     HISTORY_DIR = os.path.join(STORAGE_DIR, "history")
-    CURRENT_HISTORY_FILE = os.path.join(HISTORY_DIR, "current_history.json")
     BACKUPS_DIR = os.path.join(HISTORY_DIR, "backups")
     HIPPORAG_DIR = os.path.join(STORAGE_DIR, "hipporag")
     VOICE_MODEL_DIR = os.path.join(STORAGE_DIR, "voice_model/Anneli")
+    PROMPTS_DIR = "prompts"
+    
+    # Prompt Settings
+    DEFAULT_PROMPT_FILE = "comment_mode.txt"
+    MAX_HISTORY_TURNS = 1000
     
     # Voice Model Settings
     VOICE_MODEL = {
@@ -70,4 +74,5 @@ class Config:
         os.makedirs(cls.HISTORY_DIR, exist_ok=True)
         os.makedirs(cls.BACKUPS_DIR, exist_ok=True)
         os.makedirs(cls.HIPPORAG_DIR, exist_ok=True)
-        os.makedirs(cls.VOICE_MODEL_DIR, exist_ok=True) 
+        os.makedirs(cls.VOICE_MODEL_DIR, exist_ok=True)
+        os.makedirs(cls.PROMPTS_DIR, exist_ok=True) 

@@ -78,7 +78,7 @@ class MemorySearcher:
         
         return intersection / union if union > 0 else 0.0
     
-    async def search_memory(self, query: str, top_k: int = 5) -> List[MemoryItem]:
+    def search_memory(self, query: str, top_k: int = 5) -> List[MemoryItem]:
         """
         メモリを検索する
         
