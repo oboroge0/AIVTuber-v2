@@ -21,6 +21,8 @@ from .models import Comment
 from utils.logger import get_logger
 from utils.helpers import load_json_file, save_json_file, create_backup
 from core.config import Config
+from memory.hipporag_memory import VTuberMemory
+import torch
 
 logger = get_logger(__name__)
 
@@ -39,11 +41,15 @@ class AIVTuberController:
             persist_dir=Path(Config.HISTORY_DIR),
             backup_dir=Path(Config.BACKUPS_DIR)
         )
+        
+        # --- HippoRAG 長期記憶を初期化 ---
+        self.memory = VTuberMemory(model_name="cl-nagoya/sup-simcse-ja-large", use_gpu=torch.cuda.is_available())
+        
         self.prompt_builder = PromptBuilder(
             self.history,
-            system_prompt_path=Config.DEFAULT_PROMPT_FILE
+            memory=self.memory
         )
-        self.responder = Responder()
+        self.responder = Responder(Config.DEFAULT_PROMPT_FILE)
         self.tts_handler = TTSHandler()
         self.vts_animator = VTSAnimator()
         self.obs_connector = OBSConnector()
@@ -62,6 +68,12 @@ class AIVTuberController:
         try:
             self.current_video_id = video_id
             self.is_running = True
+            
+            # OBSのチャットURLを設定
+            self.obs_connector.set_chat_url(video_id)
+
+            # ランダムなアニメーションをトリガー
+            #self.vts_animator.start()
             
             # --- Producer タスク：CommentListener ---
             self._listener = CommentListener(video_id, self._comment_queue)
@@ -94,6 +106,9 @@ class AIVTuberController:
             text: 再生するテキスト
         """
         try:
+            # OBSの字幕を更新
+            self.obs_connector.set_answer(text)
+            
             # --- TTS 音声合成（Executor で非同期実行） ---
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
@@ -101,7 +116,6 @@ class AIVTuberController:
                 self.tts_handler.text_to_speech,
                 text,
             )
-            await self.vts_animator.trigger_random_animation("Speak")
         except Exception as e:
             logger.error(f"Error speaking text: {e}")
     
@@ -122,30 +136,18 @@ class AIVTuberController:
         if score < Config.THRESHOLD:
             return
             
-        response_text = await self._full_response_pipeline(comment.text)
-        await self._speak(response_text)
-    
-    async def _full_response_pipeline(self, user_text: str) -> str:
-        """
-        完全な応答パイプライン
-        
-        Args:
-            user_text: ユーザーのテキスト
-            
-        Returns:
-            生成された応答
-        """
-        # 関連する記憶を検索
-        memory_snippet = self.memory_searcher.search_memory(user_text)
-        
         # プロンプトを構築
-        prompt = self.prompt_builder.build(comment=user_text, rag_memory=memory_snippet)
+        prompt = self.prompt_builder.build(comment=f"{comment.author}: {comment.text}")
         
         # 応答を生成
-        response = await self.responder.generate_response(prompt)
+        response_text = await self.responder.generate_response(prompt)
 
-        # 履歴を更新
-        self.history.append("user", user_text)
-        self.history.append("assistant", response)
+        # 新しい会話を長期記憶に追加
+        self.memory.add(f"{comment.author}: {comment.text}", {"role": "user"})
+        self.memory.add(response_text, {"role": "assistant"})
         
-        return response 
+        # 履歴を更新
+        self.history.append("user", f"{comment.author}: {comment.text}")
+        self.history.append("assistant", response_text)
+        
+        await self._speak(response_text)

@@ -51,7 +51,7 @@ class TTSHandler:
             logger.error(f"Failed to load TTS models: {e}")
             raise
     
-    def text_to_speech(self, text, speed=0.95):
+    def text_to_speech(self, text, speed=0.9):
         """テキストを音声に変換して再生"""
         try:
             # 音声合成

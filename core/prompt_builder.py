@@ -3,33 +3,35 @@
 """
 from core.system_prompt_loader import SystemPromptLoader
 from utils.logger import get_logger
+from memory.hipporag_memory import VTuberMemory
+from typing import Optional
 
 logger = get_logger(__name__)
 
 class PromptBuilder:
     """プロンプトビルダー"""
     
-    def __init__(self, history_mgr, system_prompt_path="comment_mode.txt"):
+    def __init__(self, history_mgr, memory: VTuberMemory):
         self.history_mgr = history_mgr
-        self.system_prompt = SystemPromptLoader.load(system_prompt_path)
+        self.memory = memory
 
-    def build(self, *, comment: str, rag_memory: str) -> str:
+    def build(self, *, comment: str) -> str:
         """
         構造化されたプロンプトを構築する
         
         Args:
             comment: コメント
-            rag_memory: RAGメモリの内容
             
         Returns:
             str: 構築されたプロンプト
         """
+        # 関連する記憶を検索
+        retrieved = self.memory.retrieve(comment)
+        rag_memory = "\n".join([f"【記憶{i+1}】{c}" for i, c in enumerate(retrieved)])
+        
         recent_history = self.history_mgr.get_last_n_turns(10)
 
-        prompt = f"""<system>
-{self.system_prompt}
-</system>
-
+        prompt = f"""
 <memory>
 {rag_memory}
 </memory>

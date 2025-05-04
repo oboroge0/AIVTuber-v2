@@ -152,37 +152,6 @@ class VTSAnimator:
         except Exception as e:
             logger.error(f"VTSアニメーターエラー: {e}")
     
-    async def trigger_random_animation(self, event: Optional[str] = None) -> None:
-        """
-        ランダムなアニメーションをトリガーする
-        
-        Args:
-            event: イベント名（オプション）
-        """
-        try:
-            async with websockets.connect(self.ws_uri) as ws:
-                token = await self._request_token(ws)
-                if not token:
-                    logger.error("認証トークン取得失敗")
-                    return
-                
-                authenticated = await self._authenticate(ws, token)
-                if not authenticated:
-                    logger.error("認証失敗")
-                    return
-                
-                # ホットキーを取得（まだ取得していない場合）
-                if not self._hotkeys:
-                    self._hotkeys = await self._get_hotkeys(ws)
-                
-                # ランダムにホットキーを選択してトリガー
-                hotkey = random.choice(self._hotkeys)
-                logger.info(f"トリガー: {hotkey['name']} ({hotkey['hotkeyID']})")
-                await self._trigger_hotkey(ws, hotkey['hotkeyID'])
-                
-        except Exception as e:
-            logger.error(f"アニメーショントリガーエラー: {e}")
-    
     def start(self) -> None:
         """アニメーターを開始"""
         if self._running:
