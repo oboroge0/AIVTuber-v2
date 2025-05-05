@@ -94,8 +94,29 @@ async def get_status():
     """ステータスを取得する"""
     return {
         "is_running": controller.is_running,
-        "current_video_id": controller.current_video_id
+        "current_video_id": controller.current_video_id,
+        "is_comment_processing": controller.is_comment_processing()
     }
+
+@app.post("/pause_comment_processing")
+async def pause_comment_processing():
+    """コメント処理を一時停止する"""
+    try:
+        controller.pause_comment_processing()
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error pausing comment processing: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/resume_comment_processing")
+async def resume_comment_processing():
+    """コメント処理を再開する"""
+    try:
+        controller.resume_comment_processing()
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error resuming comment processing: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.websocket("/logs")
 async def websocket_endpoint(ws: WebSocket):
