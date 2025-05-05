@@ -33,9 +33,25 @@ st.sidebar.info(f"APIサーバー: {API_URL}")
 with st.sidebar:
     st.header("配信制御")
     
+    # テーマ設定
+    st.header("配信テーマ")
+    current_theme = st.text_input("現在の配信テーマ", value=st.session_state.get("current_theme", ""))
+    if st.button("テーマを設定"):
+        if current_theme:
+            response = requests.post(
+                f"{API_URL}/set_theme",
+                json={"theme": current_theme}
+            )
+            if response.status_code == 200:
+                st.success("テーマを設定しました")
+                st.session_state.current_theme = current_theme
+            else:
+                st.error(f"エラー: {response.text}")
+        else:
+            st.warning("テーマを入力してください")
+    
     # チャンネルID選択
     channel_options = {
-        "すべてのチャンネル": None,
         "おぼろげ": "UCF3rtSDBs-2VmYSiEVUf4Qw",
         "天知レイ": "UCgiYsOd1wZ2mVR6g0tQIwrw"
     }

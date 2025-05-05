@@ -44,6 +44,10 @@ class SpeakRequest(BaseModel):
     """発話リクエスト"""
     text: str
 
+class SetThemeRequest(BaseModel):
+    """テーマ設定リクエスト"""
+    theme: str
+
 @app.post("/start")
 async def start_stream(request: StartRequest):
     """配信を開始する"""
@@ -73,6 +77,16 @@ async def speak_text(request: SpeakRequest):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error speaking text: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/set_theme")
+async def set_theme(request: SetThemeRequest):
+    """配信テーマを設定する"""
+    try:
+        controller.set_theme(request.theme)
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error setting theme: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.get("/status")

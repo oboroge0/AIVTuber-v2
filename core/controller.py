@@ -55,8 +55,19 @@ class AIVTuberController:
         self.obs_connector = OBSConnector()
         
         self.current_video_id: Optional[str] = None
+        self.current_theme: Optional[str] = None
         self.is_running = False
         self._listener = None
+    
+    def set_theme(self, theme: str) -> None:
+        """
+        現在の配信テーマを設定する
+        
+        Args:
+            theme: 設定するテーマ
+        """
+        self.current_theme = theme
+        logger.info(f"配信テーマを設定しました: {theme}")
     
     async def start(self, video_id: str) -> None:
         """
@@ -136,8 +147,11 @@ class AIVTuberController:
         if score < Config.THRESHOLD:
             return
             
-        # プロンプトを構築
-        prompt = self.prompt_builder.build(comment=f"{comment.author}: {comment.text}")
+        # プロンプトを構築（テーマを含める）
+        prompt = self.prompt_builder.build(
+            comment=f"{comment.author}: {comment.text}",
+            current_theme=self.current_theme
+        )
         
         # 応答を生成
         response_text = await self.responder.generate_response(prompt)

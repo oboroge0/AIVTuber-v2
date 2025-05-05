@@ -15,12 +15,13 @@ class PromptBuilder:
         self.history_mgr = history_mgr
         self.memory = memory
 
-    def build(self, *, comment: str) -> str:
+    def build(self, *, comment: str, current_theme: Optional[str] = None) -> str:
         """
         構造化されたプロンプトを構築する
         
         Args:
             comment: コメント
+            current_theme: 現在の配信テーマ
             
         Returns:
             str: 構築されたプロンプト
@@ -39,6 +40,10 @@ class PromptBuilder:
 <recent>
 {recent_history}
 </recent>
+
+<theme>
+現在の配信テーマ: {current_theme if current_theme else "未設定"}
+</theme>
 
 <user>
 {comment}
