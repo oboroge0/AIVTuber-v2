@@ -49,6 +49,4 @@ class PromptBuilder:
 {comment}
 </user>""" 
 
-        logger.info(f"構築されたプロンプト: {prompt}")
-
         return prompt

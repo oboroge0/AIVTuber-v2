@@ -31,10 +31,10 @@ st.sidebar.info(f"APIサーバー: {API_URL}")
 
 # サイドバー
 with st.sidebar:
-    st.header("配信制御")
+    st.header("配信設定")
     
     # テーマ設定
-    st.header("配信テーマ")
+    st.subheader("配信テーマ")
     current_theme = st.text_input("現在の配信テーマ", value=st.session_state.get("current_theme", ""))
     if st.button("テーマを設定"):
         if current_theme:
@@ -51,6 +51,7 @@ with st.sidebar:
             st.warning("テーマを入力してください")
     
     # チャンネルID選択
+    st.subheader("配信選択")
     channel_options = {
         "おぼろげ": "UCF3rtSDBs-2VmYSiEVUf4Qw",
         "天知レイ": "UCgiYsOd1wZ2mVR6g0tQIwrw"
@@ -113,22 +114,6 @@ with st.sidebar:
             st.success("配信を停止しました")
         else:
             st.error(f"エラー: {response.text}")
-    
-    # 手動発話
-    st.header("手動発話")
-    manual_text = st.text_area("発話テキスト")
-    if st.button("発話"):
-        if manual_text:
-            response = requests.post(
-                f"{API_URL}/speak",
-                json={"text": manual_text}
-            )
-            if response.status_code == 200:
-                st.success("発話を開始しました")
-            else:
-                st.error(f"エラー: {response.text}")
-        else:
-            st.warning("発話テキストを入力してください")
 
 # メインコンテンツ
 col1, col2 = st.columns(2)
@@ -148,32 +133,80 @@ with col1:
     except:
         st.error("サーバーに接続できません")
 
-# ログ表示
+# 制御パネル
 with col2:
-    st.header("ログ")
-    log_placeholder = st.empty()
+    st.header("制御パネル")
     
-    # WebSocketでログを取得
-    import websockets
-    import asyncio
+    # コメント処理制御
+    st.subheader("コメント処理制御")
+    col1, col2 = st.columns(2)
     
-    async def receive_logs():
-        try:
-            async with websockets.connect(f"ws://{API_HOST}:{API_PORT}/logs") as websocket:
-                while True:
-                    try:
-                        log = await websocket.recv()
-                        log_data = json.loads(log)
-                        timestamp = datetime.fromtimestamp(log_data['timestamp'])
-                        log_placeholder.write(f"{timestamp.strftime('%H:%M:%S')} - {log_data['message']}")
-                    except websockets.exceptions.ConnectionClosed:
-                        log_placeholder.error("ログサーバーとの接続が切断されました")
-                        break
-                    except Exception as e:
-                        log_placeholder.error(f"ログの受信中にエラーが発生しました: {e}")
-                        break
-        except Exception as e:
-            log_placeholder.error(f"ログサーバーに接続できません: {e}")
+    with col1:
+        if st.button("コメント処理を一時停止"):
+            response = requests.post(f"{API_URL}/pause_comment_processing")
+            if response.status_code == 200:
+                st.success("コメント処理を一時停止しました")
+            else:
+                st.error(f"エラー: {response.text}")
     
-    # WebSocketの接続を開始
-    asyncio.run(receive_logs()) 
+    with col2:
+        if st.button("コメント処理を再開"):
+            response = requests.post(f"{API_URL}/resume_comment_processing")
+            if response.status_code == 200:
+                st.success("コメント処理を再開しました")
+            else:
+                st.error(f"エラー: {response.text}")
+    
+    # コメント処理状態の表示
+    try:
+        response = requests.get(f"{API_URL}/status")
+        if response.status_code == 200:
+            status = response.json()
+            st.write(f"コメント処理状態: {'処理中' if status['is_comment_processing'] else '一時停止中'}")
+    except:
+        st.error("ステータス取得エラー")
+    
+    # 手動発話
+    st.subheader("手動発話")
+    manual_text = st.text_area("発話テキスト")
+    if st.button("発話"):
+        if manual_text:
+            response = requests.post(
+                f"{API_URL}/speak",
+                json={"text": manual_text}
+            )
+            if response.status_code == 200:
+                st.success("発話を開始しました")
+            else:
+                st.error(f"エラー: {response.text}")
+        else:
+            st.warning("発話テキストを入力してください")
+
+# ログ表示
+st.header("ログ")
+log_placeholder = st.empty()
+
+# WebSocketでログを取得
+import websockets
+import asyncio
+
+async def receive_logs():
+    try:
+        async with websockets.connect(f"ws://{API_HOST}:{API_PORT}/logs") as websocket:
+            while True:
+                try:
+                    log = await websocket.recv()
+                    log_data = json.loads(log)
+                    timestamp = datetime.fromtimestamp(log_data['timestamp'])
+                    log_placeholder.write(f"{timestamp.strftime('%H:%M:%S')} - {log_data['message']}")
+                except websockets.exceptions.ConnectionClosed:
+                    log_placeholder.error("ログサーバーとの接続が切断されました")
+                    break
+                except Exception as e:
+                    log_placeholder.error(f"ログの受信中にエラーが発生しました: {e}")
+                    break
+    except Exception as e:
+        log_placeholder.error(f"ログサーバーに接続できません: {e}")
+
+# WebSocketの接続を開始
+asyncio.run(receive_logs()) 
