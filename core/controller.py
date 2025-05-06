@@ -81,7 +81,7 @@ class AIVTuberController:
             self.obs_connector.set_chat_url(video_id)
 
             # ランダムなアニメーションをトリガー
-            #self.vts_animator.start()
+            self.vts_animator.start()
             
             # --- Producer タスク：CommentListener ---
             self._listener = CommentListener(video_id, self._comment_queue)

@@ -85,21 +85,25 @@ class Speak:
     async def add_speech(self, text: str):
         """発話キューにテキストを追加する"""
         try:
-            # キューが満杯の場合はスキップ
-            if self._queue.full():
-                logger.warning("発話キューが満杯のため、発話をスキップしました")
-                return
+            # テキストを改行で分割
+            sentences = [s.strip() for s in text.split('\n') if s.strip()]
             
-            # OBSの字幕を更新
-            self._obs_connector.set_answer(text)
-            
-            # テキストを音声に変換
-            audio = await self._text_to_speech(text)
-            
-            # キューに追加
-            await self._queue.put(audio)
-            self._last_activity = asyncio.get_event_loop().time()
-            
+            for sentence in sentences:
+                # キューが満杯の場合はスキップ
+                if self._queue.full():
+                    logger.warning("発話キューが満杯のため、発話をスキップしました")
+                    return
+                
+                # OBSの字幕を更新
+                self._obs_connector.set_answer(sentence)
+                
+                # テキストを音声に変換
+                audio = await self._text_to_speech(sentence)
+                
+                # キューに追加
+                await self._queue.put(audio)
+                self._last_activity = asyncio.get_event_loop().time()
+                
         except Exception as e:
             logger.error(f"発話追加エラー: {e}")
     
