@@ -77,7 +77,7 @@ class CommentListener:
                         )
                         # キューに追加（Producer）
                         await self._comment_queue.put(comment)
-                        logger.info(f"Queued comment: {comment.author}: {comment.text}")
+                        logger.info(f"取得したコメント: {comment.author}: {comment.text}")
                     except Exception as e:
                         logger.error(f"コメント処理エラー: {e}")
                 

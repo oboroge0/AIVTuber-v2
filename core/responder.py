@@ -28,12 +28,12 @@ class Responder:
         """
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4.1-nano",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
+                temperature=1,
                 max_tokens=300
             )
 

@@ -130,15 +130,25 @@ class AIVTuberController:
                     await asyncio.sleep(1)
                     continue
 
-                # キューが空の場合、会話を継続
-                if self._comment_queue.empty():
-                    await self._generate_continuation_response()
+                # 発話キューが満杯の場合はスキップ
+                if self.speak._queue.full():
+                    logger.warning("発話キューが満杯のため、コメントをスキップしました")
+                    self._comment_queue.task_done()
                     continue
 
+                # キューが空の場合、会話を継続
+                if self._comment_queue.empty():
+                    # 発話中でない場合のみ継続応答を生成
+                    if not self.speak.is_speaking() and not self.speak._queue.full():
+                        await self._generate_continuation_response()
+                    continue
+                
                 # コメントがある場合は通常通り処理
                 comment = await self._comment_queue.get()
+
                 await self._handle_comment(comment)
-                self._comment_queue.task_done()  # タスク完了を通知
+                self._comment_queue.task_done()
+
             except Exception as e:
                 logger.exception(e)
                 if not self._comment_queue.empty():
@@ -173,7 +183,7 @@ class AIVTuberController:
         """コメントがない場合の継続応答を生成"""
         try:
             prompt = self.prompt_builder.build(
-                comment="自然に会話を継続してください。",
+                comment="<system>直前の会話の内容を読み取り、自然に会話を展開してください。</system>",
                 current_theme=self.current_theme
             )
             
