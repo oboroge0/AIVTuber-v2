@@ -3,20 +3,17 @@
 """
 import os
 import json
-import torch
 import numpy as np
 import sounddevice as sd
 import asyncio
 from typing import Optional
-from pathlib import Path
 from style_bert_vits2.nlp import bert_models
 from style_bert_vits2.tts_model import TTSModel
 from style_bert_vits2.constants import Languages
 from utils.logger import get_logger
 from .obs_connector import OBSConnector
 from core.config import Config
-import wave
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+import re
 
 logger = get_logger(__name__)
 
@@ -25,7 +22,7 @@ class Speak:
     
     def __init__(self):
         """初期化"""
-        self._queue: asyncio.Queue[np.ndarray] = asyncio.Queue(maxsize=50)  # 最大50件のキュー
+        self._queue: asyncio.Queue[tuple[str, np.ndarray]] = asyncio.Queue(maxsize=50)  # 最大50件のキュー
         self._is_processing = True
         self._current_task: Optional[asyncio.Task] = None
         self._obs_connector = OBSConnector()
@@ -85,23 +82,34 @@ class Speak:
     async def add_speech(self, text: str):
         """発話キューにテキストを追加する"""
         try:
-            # テキストを改行で分割
-            sentences = [s.strip() for s in text.split('\n') if s.strip()]
+            # 正規表現で文を分割（。！？\nで分割し、区切り文字も保持）
+            parts = re.split(r'([。！？\n])', text)
             
+            # 文を構築
+            sentences = []
+            current = ""
+            for part in parts:
+                current += part
+                if part in ['。', '！', '？', '\n'] and current.strip():
+                    sentences.append(current.strip())
+                    current = ""
+            
+            # 残りの文がある場合は追加
+            if current.strip():
+                sentences.append(current.strip())
+            
+            # 各文を処理
             for sentence in sentences:
                 # キューが満杯の場合はスキップ
                 if self._queue.full():
                     logger.warning("発話キューが満杯のため、発話をスキップしました")
                     return
                 
-                # OBSの字幕を更新
-                self._obs_connector.set_answer(sentence)
-                
                 # テキストを音声に変換
                 audio = await self._text_to_speech(sentence)
                 
-                # キューに追加
-                await self._queue.put(audio)
+                # キューに追加（文と音声データをタプルとして保存）
+                await self._queue.put((sentence, audio))
                 self._last_activity = asyncio.get_event_loop().time()
                 
         except Exception as e:
@@ -113,13 +121,18 @@ class Speak:
             while self._is_processing:
                 try:
                     # キューから音声データを取得
-                    audio = await self._queue.get()
+                    sentence, audio = await self._queue.get()
                     
                     # 発話開始
                     self._is_speaking = True
                     
                     # 音声を再生
                     sd.play(audio)
+                    
+                    # OBSの字幕を更新
+                    self._obs_connector.set_answer(sentence)
+                    
+                    # 音声の再生が終わるまで待機
                     sd.wait()
                     
                     # 発話終了
