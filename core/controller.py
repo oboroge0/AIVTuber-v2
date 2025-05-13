@@ -4,6 +4,7 @@
 import asyncio
 from typing import Optional
 from pathlib import Path
+from datetime import datetime
 
 from .comment_listener import CommentListener
 from .scorer import CommentScorer
@@ -174,8 +175,14 @@ class AIVTuberController:
         response_text = await self.responder.generate_response(prompt)
 
         # 長期記憶に追加
-        self.memory.add(f"{comment.author}: {comment.text}", {"role": "user"})
-        self.memory.add(response_text, {"role": "assistant"})
+        self.memory.add(f"{comment.author}: {comment.text}", {
+            "role": "user",
+            "timestamp": datetime.now().isoformat()
+        })
+        self.memory.add(response_text, {
+            "role": "assistant",
+            "timestamp": datetime.now().isoformat()
+        })
         
         # 履歴を更新
         self.history.append("user", f"{comment.author}: {comment.text}")

@@ -106,10 +106,10 @@ class Speak:
                     return
                 
                 # テキストを音声に変換
-                audio = await self._text_to_speech(sentence)
+                sr, audio = await self._text_to_speech(sentence)
                 
                 # キューに追加（文と音声データをタプルとして保存）
-                await self._queue.put((sentence, audio))
+                await self._queue.put((sentence, sr, audio))
                 self._last_activity = asyncio.get_event_loop().time()
                 
         except Exception as e:
@@ -121,13 +121,13 @@ class Speak:
             while self._is_processing:
                 try:
                     # キューから音声データを取得
-                    sentence, audio = await self._queue.get()
+                    sentence, sr, audio = await self._queue.get()
                     
                     # 発話開始
                     self._is_speaking = True
                     
                     # 音声を再生
-                    sd.play(audio)
+                    sd.play(audio, sr)
                     
                     # OBSの字幕を更新
                     self._obs_connector.set_answer(sentence)
@@ -152,15 +152,15 @@ class Speak:
             sd.stop()
             self._is_speaking = False
     
-    async def _text_to_speech(self, text: str) -> np.ndarray:
+    async def _text_to_speech(self, text: str) -> tuple[int, np.ndarray]:
         """テキストを音声に変換して再生"""
         try:
             # 音声合成
-            sr, audio = self.tts_model.infer(text=text, length=0.8)
+            sr, audio = self.tts_model.infer(text=text, length=0.95)
             
             # 音声データを正規化
             audio = audio / np.max(np.abs(audio))
-            return audio
+            return sr, audio
             
         except Exception as e:
             logger.error(f"Failed to synthesize and play speech: {e}")

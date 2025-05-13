@@ -28,7 +28,7 @@ class PromptBuilder:
         """
         # 関連する記憶を検索
         retrieved = self.memory.retrieve(comment)
-        rag_memory = "\n".join([f"【記憶{i+1}】{c}" for i, c in enumerate(retrieved)])
+        rag_memory = "\n".join([f"【記憶{i+1}】{c} (記録日時: {self.memory.documents[i].metadata.get('timestamp', '不明')})" for i, c in enumerate(retrieved)])
         
         recent_history = self.history_mgr.get_last_n_turns(10)
 

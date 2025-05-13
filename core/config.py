@@ -44,7 +44,7 @@ class Config:
     MAX_HISTORY_TURNS = 1000
     
     # Comment Scoring
-    THRESHOLD = 0.3  # コメントスコアリングの閾値
+    THRESHOLD = 0.0  # コメントスコアリングの閾値
     
     # Voice Model Settings
     VOICE_MODEL = {
