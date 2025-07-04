@@ -20,4 +20,8 @@ git+https://github.com/OSU-NLP-Group/HippoRAG.git
 sentence-transformers>=2.5.1
 faiss-cpu>=1.7.4
 fugashi>=1.2.1
-unidic-lite>=1.0.8 
+unidic-lite>=1.0.8
+# 音声認識（Google Speech-to-Text）
+google-cloud-speech>=2.20.0
+pyaudio>=0.2.13
+SpeechRecognition>=3.10.0 

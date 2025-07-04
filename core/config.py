@@ -60,6 +60,20 @@ class Config:
         }
     }
     
+    # 音声認識設定
+    VOICE_RECOGNITION = {
+        "enabled": os.getenv("VOICE_RECOGNITION_ENABLED", "false").lower() == "true",
+        "language": os.getenv("VOICE_LANGUAGE", "ja-JP"),
+        "sample_rate": int(os.getenv("VOICE_SAMPLE_RATE", "16000")),
+        "chunk_size": int(os.getenv("VOICE_CHUNK_SIZE", "1024")),
+        "energy_threshold": int(os.getenv("VOICE_ENERGY_THRESHOLD", "4000")),
+        "mic_device_index": None,  # None for default device
+        "google_cloud_credentials": os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    }
+    
+    # 動作モード設定
+    OPERATION_MODE = os.getenv("OPERATION_MODE", "chat")  # "chat", "voice", "hybrid"
+    
     @classmethod
     def validate(cls):
         """設定の検証"""
@@ -72,6 +86,11 @@ class Config:
         missing_vars = [var for var in required_vars if not getattr(cls, var)]
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        
+        # 音声認識が有効な場合の追加検証
+        if cls.VOICE_RECOGNITION["enabled"]:
+            if not cls.VOICE_RECOGNITION["google_cloud_credentials"]:
+                raise ValueError("GOOGLE_APPLICATION_CREDENTIALS is required when voice recognition is enabled")
         
         # ディレクトリの作成
         os.makedirs(cls.HISTORY_DIR, exist_ok=True)

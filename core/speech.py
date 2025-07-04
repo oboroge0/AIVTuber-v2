@@ -127,7 +127,7 @@ class Speak:
                     self._is_speaking = True
                     
                     # 音声を再生
-                    sd.play(audio, sr)
+                    sd.play(audio, sr, device=7)
                     
                     # OBSの字幕を更新
                     self._obs_connector.set_answer(sentence)

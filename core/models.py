@@ -12,6 +12,11 @@ class Comment:
     author: str
     text: str
     timestamp: datetime
+    source: str = "youtube"  # "youtube" or "voice"
+    priority: str = "normal"  # "normal" or "high"
+    is_voice_input: bool = False
+    is_super_chat: bool = False
+    is_member: bool = False
 
 @dataclass
 class MemoryItem:

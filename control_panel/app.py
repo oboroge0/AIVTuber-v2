@@ -116,6 +116,42 @@ with st.sidebar:
             st.error(f"エラー: {response.text}")
 
 # メインコンテンツ
+# 音声認識モード設定
+st.header("🎤 動作モード設定")
+mode_col1, mode_col2, mode_col3 = st.columns(3)
+
+with mode_col1:
+    current_mode = st.session_state.get("operation_mode", "chat")
+    mode = st.radio(
+        "動作モード",
+        ["chat", "voice", "hybrid"],
+        format_func=lambda x: {
+            "chat": "📺 チャットのみ",
+            "voice": "🎙️ 音声のみ",
+            "hybrid": "🎙️📺 ハイブリッド"
+        }[x],
+        key="operation_mode",
+        help="AIVTuberの入力モードを選択します"
+    )
+    
+    if st.button("モードを適用"):
+        response = requests.post(
+            f"{API_URL}/mode/set",
+            json={"mode": mode}
+        )
+        if response.status_code == 200:
+            st.success(f"モードを{mode}に設定しました")
+        else:
+            st.error(f"エラー: {response.text}")
+
+with mode_col2:
+    st.metric("現在のモード", mode)
+    if mode == "voice":
+        st.info("音声入力のみで動作します")
+    elif mode == "hybrid":
+        st.info("音声入力を優先的に処理します")
+
+# 配信情報と制御
 col1, col2 = st.columns(2)
 
 # 配信情報
@@ -128,6 +164,7 @@ with col1:
             st.write(f"配信状態: {'配信中' if status['is_running'] else '停止中'}")
             if status['current_video_id']:
                 st.write(f"現在の配信: {status['current_video_id']}")
+            st.write(f"動作モード: {status.get('operation_mode', 'chat')}")
         else:
             st.error("ステータス取得エラー")
     except:
@@ -181,6 +218,86 @@ with col2:
                 st.error(f"エラー: {response.text}")
         else:
             st.warning("発話テキストを入力してください")
+
+# 音声認識設定
+st.header("🎙️ 音声認識設定")
+voice_col1, voice_col2 = st.columns(2)
+
+with voice_col1:
+    st.subheader("マイク設定")
+    
+    # 利用可能なマイクデバイスを取得
+    if st.button("マイクデバイスを更新"):
+        response = requests.get(f"{API_URL}/voice/devices")
+        if response.status_code == 200:
+            data = response.json()
+            if data["status"] == "success":
+                st.session_state.audio_devices = data["devices"]
+                st.success("デバイスリストを更新しました")
+            else:
+                st.error(f"エラー: {data.get('message', '不明なエラー')}")
+    
+    # マイク選択
+    devices = st.session_state.get("audio_devices", [])
+    if devices:
+        device_names = ["デフォルト"] + [d["name"] for d in devices]
+        selected_device = st.selectbox("マイクデバイス", device_names)
+        mic_index = None if selected_device == "デフォルト" else next((d["index"] for d in devices if d["name"] == selected_device), None)
+    else:
+        st.info("「マイクデバイスを更新」をクリックしてデバイスを検出してください")
+        mic_index = None
+
+with voice_col2:
+    st.subheader("音声認識状態")
+    
+    # 音声認識の状態を表示
+    if st.button("状態を更新", key="update_voice_status"):
+        response = requests.get(f"{API_URL}/voice/status")
+        if response.status_code == 200:
+            voice_status = response.json()
+            
+            # 状態表示
+            if voice_status["is_listening"]:
+                st.success("🎙️ 音声認識中")
+                
+                # 音声レベル表示
+                audio_level = voice_status.get("audio_level", 0)
+                st.progress(min(audio_level / 100, 1.0), text=f"音声レベル: {audio_level}")
+                
+                # 認識中のテキスト
+                interim_text = voice_status.get("interim_text", "")
+                if interim_text:
+                    st.info(f"認識中: {interim_text}")
+                    
+                # エラー状態
+                if voice_status.get("error_count", 0) > 0:
+                    st.warning(f"エラー回数: {voice_status['error_count']}")
+            else:
+                st.info("⚫ 音声認識停止中")
+    
+    # 音声認識の開始/停止
+    voice_action_col1, voice_action_col2 = st.columns(2)
+    with voice_action_col1:
+        if st.button("音声認識開始", key="start_voice"):
+            if mode in ["voice", "hybrid"]:
+                response = requests.post(
+                    f"{API_URL}/voice/start",
+                    json={"mic_index": mic_index}
+                )
+                if response.status_code == 200:
+                    st.success("音声認識を開始しました")
+                else:
+                    st.error(f"エラー: {response.text}")
+            else:
+                st.warning("音声認識を使用するには、音声モードまたはハイブリッドモードに設定してください")
+    
+    with voice_action_col2:
+        if st.button("音声認識停止", key="stop_voice"):
+            response = requests.post(f"{API_URL}/voice/stop")
+            if response.status_code == 200:
+                st.success("音声認識を停止しました")
+            else:
+                st.error(f"エラー: {response.text}")
 
 # ログ表示
 st.header("ログ")
